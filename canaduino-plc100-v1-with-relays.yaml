@@ -1,0 +1,281 @@
+esphome:
+  name: canaduino-plc100-v1
+  friendly_name: CANADUINO PLC-100 V1
+
+esp32:
+  board: esp32-c6-devkitc-1
+  framework:
+    type: esp-idf
+
+logger:
+
+api:
+
+ota:
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Fallback AP for recovery if Wi-Fi is unavailable.
+  ap:
+    ssid: "CANADUINO-PLC100-Fallback"
+    password: "changeme123"
+
+captive_portal:
+
+web_server:
+  port: 80
+
+#------------------------------------------------------------
+# I2C Configuration for relay control
+# The CANADUINO PLC-100 V1 uses an I2C relay driver for Q1-Q6
+# Default I2C address: 0x1A
+# Standard I2C pins on ESP32-C6: GPIO6 (SDA), GPIO7 (SCL)
+#------------------------------------------------------------
+i2c:
+  id: bus_a
+  sda: GPIO6
+  scl: GPIO7
+  scan: true
+  frequency: 100kHz
+
+#------------------------------------------------------------
+# Digital inputs mapped from the CANADUINO PLC-100 V1 board.
+# Board mapping from schematic:
+#   D1 -> GPIO4
+#   D2 -> GPIO5
+#   D3 -> GPIO10
+#   D4 -> GPIO11
+#------------------------------------------------------------
+binary_sensor:
+  - platform: gpio
+    name: "PLC D1"
+    id: plc_d1
+    pin:
+      number: GPIO4
+      mode:
+        input: true
+        pullup: true
+    filters:
+      - delayed_on: 50ms
+      - delayed_off: 50ms
+
+  - platform: gpio
+    name: "PLC D2"
+    id: plc_d2
+    pin:
+      number: GPIO5
+      mode:
+        input: true
+        pullup: true
+    filters:
+      - delayed_on: 50ms
+      - delayed_off: 50ms
+
+  - platform: gpio
+    name: "PLC D3"
+    id: plc_d3
+    pin:
+      number: GPIO10
+      mode:
+        input: true
+        pullup: true
+    filters:
+      - delayed_on: 50ms
+      - delayed_off: 50ms
+
+  - platform: gpio
+    name: "PLC D4"
+    id: plc_d4
+    pin:
+      number: GPIO11
+      mode:
+        input: true
+        pullup: true
+    filters:
+      - delayed_on: 50ms
+      - delayed_off: 50ms
+
+#------------------------------------------------------------
+# Analog inputs mapped from the CANADUINO PLC-100 V1 board.
+# Board mapping from schematic:
+#   A1 -> GPIO0
+#   A2 -> GPIO1
+#   A3 -> GPIO2
+#   A4 -> GPIO3
+#
+# These are scaled 0-10V inputs conditioned through the board's
+# analog input circuit. Raw ADC readings are provided; calibration
+# to actual 0-10V range can be done in Home Assistant.
+#------------------------------------------------------------
+sensor:
+  - platform: adc
+    id: plc_a1
+    name: "PLC A1 (Raw)"
+    pin: GPIO0
+    attenuation: auto
+    update_interval: 10s
+
+  - platform: adc
+    id: plc_a2
+    name: "PLC A2 (Raw)"
+    pin: GPIO1
+    attenuation: auto
+    update_interval: 10s
+
+  - platform: adc
+    id: plc_a3
+    name: "PLC A3 (Raw)"
+    pin: GPIO2
+    attenuation: auto
+    update_interval: 10s
+
+  - platform: adc
+    id: plc_a4
+    name: "PLC A4 (Raw)"
+    pin: GPIO3
+    attenuation: auto
+    update_interval: 10s
+
+#------------------------------------------------------------
+# Relay outputs Q1-Q6 via I2C relay driver
+#
+# The CANADUINO PLC-100 V1 uses an I2C relay module at address 0x1A
+# to control the 6 relay outputs. These are NOT direct GPIO outputs,
+# but rather controlled through the I2C relay driver IC.
+#
+# Relay mapping (typical for PCA9685-based relay modules):
+#   Q1 -> Channel 0
+#   Q2 -> Channel 1
+#   Q3 -> Channel 2
+#   Q4 -> Channel 3
+#   Q5 -> Channel 4
+#   Q6 -> Channel 5
+#
+# If the board uses a different relay driver or I2C address,
+# update the address and platform accordingly.
+#------------------------------------------------------------
+switch:
+  - platform: gpio
+    name: "PLC Q1"
+    id: plc_q1
+    pin:
+      pcf8574: pcf8574_hub
+      number: 0
+      mode:
+        output: true
+      inverted: false
+    restore_mode: ALWAYS_OFF
+
+  - platform: gpio
+    name: "PLC Q2"
+    id: plc_q2
+    pin:
+      pcf8574: pcf8574_hub
+      number: 1
+      mode:
+        output: true
+      inverted: false
+    restore_mode: ALWAYS_OFF
+
+  - platform: gpio
+    name: "PLC Q3"
+    id: plc_q3
+    pin:
+      pcf8574: pcf8574_hub
+      number: 2
+      mode:
+        output: true
+      inverted: false
+    restore_mode: ALWAYS_OFF
+
+  - platform: gpio
+    name: "PLC Q4"
+    id: plc_q4
+    pin:
+      pcf8574: pcf8574_hub
+      number: 3
+      mode:
+        output: true
+      inverted: false
+    restore_mode: ALWAYS_OFF
+
+  - platform: gpio
+    name: "PLC Q5"
+    id: plc_q5
+    pin:
+      pcf8574: pcf8574_hub
+      number: 4
+      mode:
+        output: true
+      inverted: false
+    restore_mode: ALWAYS_OFF
+
+  - platform: gpio
+    name: "PLC Q6"
+    id: plc_q6
+    pin:
+      pcf8574: pcf8574_hub
+      number: 5
+      mode:
+        output: true
+      inverted: false
+    restore_mode: ALWAYS_OFF
+
+#------------------------------------------------------------
+# PCF8574 I2C relay expander
+# This component manages the I2C relay driver at address 0x1A
+#------------------------------------------------------------
+pcf8574:
+  - id: pcf8574_hub
+    address: 0x1A
+    pcf8575: false
+
+#------------------------------------------------------------
+# OPTIONAL: Analog outputs AO1-AO4
+#
+# These are mapped to GPIO18-21 but require PWM or DAC output.
+# The exact implementation depends on the board's analog output
+# circuitry. These are left commented out pending schematic
+# verification of the output driver type (PWM vs. true DAC).
+#------------------------------------------------------------
+# output:
+#   - platform: ledc
+#     id: plc_ao1
+#     pin: GPIO18
+#     frequency: 1000 Hz
+#
+#   - platform: ledc
+#     id: plc_ao2
+#     pin: GPIO19
+#     frequency: 1000 Hz
+#
+#   - platform: ledc
+#     id: plc_ao3
+#     pin: GPIO20
+#     frequency: 1000 Hz
+#
+#   - platform: ledc
+#     id: plc_ao4
+#     pin: GPIO21
+#     frequency: 1000 Hz
+
+# Example light entity for PWM-based analog output (if supported)
+# light:
+#   - platform: monochromatic
+#     name: "PLC AO1"
+#     output: plc_ao1
+#   - platform: monochromatic
+#     name: "PLC AO2"
+#     output: plc_ao2
+#   - platform: monochromatic
+#     name: "PLC AO3"
+#     output: plc_ao3
+#   - platform: monochromatic
+#     name: "PLC AO4"
+#     output: plc_ao4
+
+# secret definitions expected by this config:
+# wifi_ssid: "YOUR_WIFI_SSID"
+# wifi_password: "YOUR_WIFI_PASSWORD"
