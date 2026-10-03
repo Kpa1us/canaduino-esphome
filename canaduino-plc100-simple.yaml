@@ -1,0 +1,75 @@
+esphome:
+  name: canaduino-plc100-simple
+  friendly_name: CANADUINO PLC-100 Simple
+
+esp32:
+  board: esp32-c6-devkitc-1
+  framework:
+    type: esp-idf
+
+logger:
+  level: DEBUG
+
+api:
+ota:
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  ap:
+    ssid: "Canaduino-Fallback"
+    password: "12345678"
+
+captive_portal:
+
+web_server:
+  port: 80
+
+i2c:
+  id: bus_a
+  sda: GPIO6
+  scl: GPIO7
+  scan: true
+  frequency: 100kHz
+
+globals:
+  - id: relay_q1_state
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
+
+switch:
+  - platform: template
+    name: "Relay Q1"
+    id: relay_q1
+    restore_mode: ALWAYS_OFF
+    
+    lambda: |-
+      return id(relay_q1_state);
+    
+    turn_on_action:
+      - lambda: |-
+          // PCA9557 Output Port Register is at 0x01
+          // Write register address first, then data
+          uint8_t cmd[2] = {0x01, 0x01};  // Register 0x01, set bit 0
+          
+          // Try writing with stop condition
+          auto call = id(bus_a).write_bytes(0x1A, cmd, 2);
+          
+          ESP_LOGI("i2c", "Q1 ON - write_bytes result (should be true): %d", (int)call);
+          
+          id(relay_q1_state) = true;
+          id(relay_q1).publish_state(true);
+    
+    turn_off_action:
+      - lambda: |-
+          // PCA9557 Output Port Register is at 0x01
+          uint8_t cmd[2] = {0x01, 0x00};  // Register 0x01, clear bit 0
+          
+          auto call = id(bus_a).write_bytes(0x1A, cmd, 2);
+          
+          ESP_LOGI("i2c", "Q1 OFF - write_bytes result (should be true): %d", (int)call);
+          
+          id(relay_q1_state) = false;
+          id(relay_q1).publish_state(false);
